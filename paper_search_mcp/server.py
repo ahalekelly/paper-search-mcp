@@ -512,6 +512,12 @@ if not DISABLE_SCIHUB:
             result = fetcher.download_pdf(identifier)
             return result if result else "Failed to download PDF from Sci-Hub."
         except Exception as e:
+            logger.warning(
+                "download_scihub failed for identifier=%s save_path=%s: %s",
+                identifier,
+                save_path,
+                e,
+            )
             return f"Failed to download PDF from Sci-Hub: {e}"
 
 
@@ -550,7 +556,13 @@ if not DISABLE_SCIHUB:
                 "references": "",
                 "extra": "",
             }]
-        except Exception:
+        except Exception as e:
+            logger.warning(
+                "search_scihub failed for identifier=%s max_results=%s: %s",
+                identifier,
+                max_results,
+                e,
+            )
             return []
 
 
@@ -578,6 +590,12 @@ if not DISABLE_SCIHUB:
             text = "\n".join(text_parts).strip()
             return text or "No extractable text found in PDF."
         except Exception as e:
+            logger.warning(
+                "read_scihub_paper failed for identifier=%s save_path=%s: %s",
+                identifier,
+                save_path,
+                e,
+            )
             return f"Failed to read paper from Sci-Hub: {e}"
 
 

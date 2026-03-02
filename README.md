@@ -11,7 +11,6 @@ A Model Context Protocol (MCP) server for searching and downloading academic pap
 
 - [Overview](#overview)
 - [Features](#features)
-- [Sci-Hub](#sci-hub)
 - [Installation](#installation)
   - [Quick Start](#quick-start)
     - [Install Package](#install-package)

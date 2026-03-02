@@ -10,6 +10,7 @@ from typing import Optional
 
 import requests
 from bs4 import BeautifulSoup
+from requests.exceptions import SSLError
 
 
 class SciHubFetcher:
@@ -60,7 +61,7 @@ class SciHubFetcher:
                 return None
 
             # Download the PDF
-            response = self.session.get(pdf_url, verify=False, timeout=30)
+            response = self._request_with_ssl_fallback(pdf_url, timeout=30)
             
             if response.status_code != 200:
                 logging.error(f"Failed to download PDF, status {response.status_code}")
@@ -83,6 +84,18 @@ class SciHubFetcher:
             logging.error(f"Error downloading PDF for {identifier}: {e}")
             return None
 
+    def _request_with_ssl_fallback(self, url: str, timeout: int) -> requests.Response:
+        """Attempt a verified HTTPS request, then fall back when cert validation fails."""
+        try:
+            return self.session.get(url, timeout=timeout)
+        except SSLError as ssl_error:
+            logging.warning(
+                "SSL certificate validation failed for %s; retrying with verification disabled: %s",
+                url,
+                ssl_error,
+            )
+            return self.session.get(url, verify=False, timeout=timeout)
+
     def _get_direct_url(self, identifier: str) -> Optional[str]:
         """Get the direct PDF URL from Sci-Hub."""
         try:
@@ -94,7 +107,7 @@ class SciHubFetcher:
                 try:
                     # Search on Sci-Hub
                     search_url = f"{base_url}/{identifier}"
-                    response = self.session.get(search_url, verify=False, timeout=20)
+                    response = self._request_with_ssl_fallback(search_url, timeout=20)
                     if response.status_code != 200:
                         continue
 
