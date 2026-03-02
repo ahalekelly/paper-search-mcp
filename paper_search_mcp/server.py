@@ -151,6 +151,29 @@ def _split_semicolon_values(value: str | None) -> List[str]:
     return [item.strip() for item in value.split(";") if item.strip()]
 
 
+def _build_arxiv_pdf_url(paper_id: str) -> str:
+    return f"https://arxiv.org/pdf/{paper_id}.pdf"
+
+
+def _build_biorxiv_pdf_url(paper_id: str) -> str:
+    return f"https://www.biorxiv.org/content/{paper_id}v1.full.pdf"
+
+
+def _build_medrxiv_pdf_url(paper_id: str) -> str:
+    return f"https://www.medrxiv.org/content/{paper_id}v1.full.pdf"
+
+
+def _build_iacr_pdf_url(paper_id: str) -> str:
+    return f"https://eprint.iacr.org/{paper_id}.pdf"
+
+
+def _resolve_download_result(server_path: str, download_url: str) -> str:
+    # Non-stdio transports cannot return a meaningful local server file path to clients.
+    if SELECTED_TRANSPORT != "stdio":
+        return download_url
+    return server_path
+
+
 def _build_document_id(source: str, paper: Dict[str, Any]) -> str:
     candidate_keys = [
         paper.get("paper_id"),
@@ -437,8 +460,12 @@ async def download_arxiv(paper_id: str, save_path: str = "./downloads") -> str:
     Returns:
         Path to the downloaded PDF file.
     """
+    pdf_url = _build_arxiv_pdf_url(paper_id)
+    if SELECTED_TRANSPORT != "stdio":
+        return pdf_url
     async with httpx.AsyncClient() as client:
-        return arxiv_searcher.download_pdf(paper_id, save_path)
+        server_path = arxiv_searcher.download_pdf(paper_id, save_path)
+    return _resolve_download_result(server_path, pdf_url)
 
 
 @mcp.tool()
@@ -467,7 +494,11 @@ async def download_biorxiv(paper_id: str, save_path: str = "./downloads") -> str
     Returns:
         Path to the downloaded PDF file.
     """
-    return biorxiv_searcher.download_pdf(paper_id, save_path)
+    pdf_url = _build_biorxiv_pdf_url(paper_id)
+    if SELECTED_TRANSPORT != "stdio":
+        return pdf_url
+    server_path = biorxiv_searcher.download_pdf(paper_id, save_path)
+    return _resolve_download_result(server_path, pdf_url)
 
 
 @mcp.tool()
@@ -480,7 +511,11 @@ async def download_medrxiv(paper_id: str, save_path: str = "./downloads") -> str
     Returns:
         Path to the downloaded PDF file.
     """
-    return medrxiv_searcher.download_pdf(paper_id, save_path)
+    pdf_url = _build_medrxiv_pdf_url(paper_id)
+    if SELECTED_TRANSPORT != "stdio":
+        return pdf_url
+    server_path = medrxiv_searcher.download_pdf(paper_id, save_path)
+    return _resolve_download_result(server_path, pdf_url)
 
 
 @mcp.tool()
@@ -493,7 +528,11 @@ async def download_iacr(paper_id: str, save_path: str = "./downloads") -> str:
     Returns:
         Path to the downloaded PDF file.
     """
-    return iacr_searcher.download_pdf(paper_id, save_path)
+    pdf_url = _build_iacr_pdf_url(paper_id)
+    if SELECTED_TRANSPORT != "stdio":
+        return pdf_url
+    server_path = iacr_searcher.download_pdf(paper_id, save_path)
+    return _resolve_download_result(server_path, pdf_url)
 
 
 if not DISABLE_SCIHUB:
@@ -509,6 +548,9 @@ if not DISABLE_SCIHUB:
         """
         try:
             fetcher = SciHubFetcher(output_dir=save_path)
+            if SELECTED_TRANSPORT != "stdio":
+                pdf_url = fetcher._get_direct_url(identifier)
+                return pdf_url or "Failed to resolve PDF URL from Sci-Hub."
             result = fetcher.download_pdf(identifier)
             return result if result else "Failed to download PDF from Sci-Hub."
         except Exception as e:
@@ -716,7 +758,13 @@ async def download_semantic(paper_id: str, save_path: str = "./downloads") -> st
     Returns:
         Path to the downloaded PDF file.
     """ 
-    return semantic_searcher.download_pdf(paper_id, save_path)
+    paper = semantic_searcher.get_paper_details(paper_id)
+    if not paper or not paper.pdf_url:
+        return f"Error: Could not find PDF URL for paper {paper_id}"
+    if SELECTED_TRANSPORT != "stdio":
+        return paper.pdf_url
+    server_path = semantic_searcher.download_pdf(paper_id, save_path)
+    return _resolve_download_result(server_path, paper.pdf_url)
 
 
 @mcp.tool()
